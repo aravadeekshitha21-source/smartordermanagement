@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd 
+        http://www.mulesoft.org/schema/mule/core
+        http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+        http://www.mulesoft.org/schema/mule/http
+        http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+        http://www.mulesoft.org/schema/mule/ee/core
+        http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <!-- ========================= -->
+    <!-- HTTP LISTENER CONFIG      -->
+    <!-- ========================= -->
+
+    <http:listener-config
+        name="order-api-httpListenerConfig">
+
+        <http:listener-connection
+            host="0.0.0.0"
+            port="8082"/>
+
+    </http:listener-config>
+
+
+    <!-- ========================= -->
+    <!-- GET PRODUCT               -->
+    <!-- ========================= -->
+
+    <flow name="get-product-flow">
+
+        <http:listener
+            config-ref="order-api-httpListenerConfig"
+            path="/products/{productId}"
+            allowedMethods="GET"/>
+
+        <logger
+            level="INFO"
+            message="Getting product #[attributes.uriParams.productId]"/>
+
+        <ee:transform>
+
+            <ee:message>
+
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    productId: attributes.uriParams.productId,
+    productName: "Laptop",
+    price: 50000,
+    availableStock: 10
+}]]></ee:set-payload>
+
+            </ee:message>
+
+        </ee:transform>
+
+    </flow>
+
+
+    <!-- ========================= -->
+    <!-- POST ORDER                -->
+    <!-- ========================= -->
+
+    <flow name="post-order-flow">
+
+        <http:listener
+            config-ref="order-api-httpListenerConfig"
+            path="/orders"
+            allowedMethods="POST"/>
+
+        <logger
+            level="INFO"
+            message="Order received #[payload]"/>
+
+        <ee:transform>
+
+            <ee:message>
+
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: true,
+    orderId: "ORD1001",
+    message: "Order created successfully"
+}]]></ee:set-payload>
+
+            </ee:message>
+
+        </ee:transform>
+
+    </flow>
+
+</mule>

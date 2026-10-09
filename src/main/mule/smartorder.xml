@@ -1,0 +1,624 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns="http://www.mulesoft.org/schema/mule/core"
+      xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit"
+      xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+      xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+      xmlns:http="http://www.mulesoft.org/schema/mule/http"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="
+http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd 
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd 
+        http://www.mulesoft.org/schema/mule/core
+        http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+
+        http://www.mulesoft.org/schema/mule/http
+        http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+
+        http://www.mulesoft.org/schema/mule/mule-apikit
+        http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd
+
+        http://www.mulesoft.org/schema/mule/ee/core
+        http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+
+    <!-- ===================================================== -->
+    <!-- HTTP LISTENER CONFIGURATION                           -->
+    <!-- ===================================================== -->
+
+    <http:listener-config
+        name="ordermanagementintegration-httpListenerConfig">
+
+        <http:listener-connection
+            host="0.0.0.0"
+            port="8081"/>
+
+    </http:listener-config>
+
+
+    <!-- ===================================================== -->
+    <!-- APIKIT CONFIGURATION                                  -->
+    <!-- ===================================================== -->
+
+    <apikit:config
+    name="ordermanagementintegration-config"
+    api="smartordermanagement.raml"
+    outboundHeadersMapName="outboundHeaders"
+    httpStatusVarName="httpStatus"/>
+
+
+    <!-- ===================================================== -->
+    <!-- HTTP REQUEST CONFIGURATION                            -->
+    <!-- ===================================================== -->
+
+    <http:request-config
+        name="HTTP_Request_configuration"
+        doc:name="HTTP Request configuration">
+
+        <http:request-connection
+            host="localhost"
+            port="8082"/>
+
+    </http:request-config>
+
+
+    <!-- ===================================================== -->
+    <!-- MAIN API FLOW                                         -->
+    <!-- ===================================================== -->
+
+    <flow name="ordermanagementintegration-main">
+
+        <http:listener
+            config-ref="ordermanagementintegration-httpListenerConfig"
+            path="/api/*">
+
+            <http:response
+                statusCode="#[vars.httpStatus default 200]">
+
+                <http:headers>
+                    <![CDATA[#[vars.outboundHeaders default {}]]]>
+                </http:headers>
+
+            </http:response>
+
+            <http:error-response
+                statusCode="#[vars.httpStatus default 500]">
+
+                <http:body>
+                    <![CDATA[#[payload]]]>
+                </http:body>
+
+                <http:headers>
+                    <![CDATA[#[vars.outboundHeaders default {}]]]>
+                </http:headers>
+
+            </http:error-response>
+
+        </http:listener>
+
+
+        <apikit:router
+            config-ref="ordermanagementintegration-config"/>
+
+
+        <!-- APIKit Error Handler -->
+
+        <error-handler>
+
+            <!-- 400 -->
+
+            <on-error-propagate type="APIKIT:BAD_REQUEST">
+
+                <ee:transform>
+
+                    <ee:message>
+
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: false,
+    errorCode: "BAD_REQUEST",
+    message: "Bad request"
+}]]></ee:set-payload>
+
+                    </ee:message>
+
+                    <ee:variables>
+
+                        <ee:set-variable
+                            variableName="httpStatus">400</ee:set-variable>
+
+                    </ee:variables>
+
+                </ee:transform>
+
+            </on-error-propagate>
+
+
+            <!-- 404 -->
+
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+
+                <ee:transform>
+
+                    <ee:message>
+
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: false,
+    errorCode: "NOT_FOUND",
+    message: "Resource not found"
+}]]></ee:set-payload>
+
+                    </ee:message>
+
+                    <ee:variables>
+
+                        <ee:set-variable
+                            variableName="httpStatus">404</ee:set-variable>
+
+                    </ee:variables>
+
+                </ee:transform>
+
+            </on-error-propagate>
+
+
+            <!-- 405 -->
+
+            <on-error-propagate type="APIKIT:METHOD_NOT_ALLOWED">
+
+                <ee:transform>
+
+                    <ee:message>
+
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: false,
+    errorCode: "METHOD_NOT_ALLOWED",
+    message: "Method not allowed"
+}]]></ee:set-payload>
+
+                    </ee:message>
+
+                    <ee:variables>
+
+                        <ee:set-variable
+                            variableName="httpStatus">405</ee:set-variable>
+
+                    </ee:variables>
+
+                </ee:transform>
+
+            </on-error-propagate>
+
+
+            <!-- 406 -->
+
+            <on-error-propagate type="APIKIT:NOT_ACCEPTABLE">
+
+                <ee:transform>
+
+                    <ee:message>
+
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: false,
+    errorCode: "NOT_ACCEPTABLE",
+    message: "Not acceptable"
+}]]></ee:set-payload>
+
+                    </ee:message>
+
+                    <ee:variables>
+
+                        <ee:set-variable
+                            variableName="httpStatus">406</ee:set-variable>
+
+                    </ee:variables>
+
+                </ee:transform>
+
+            </on-error-propagate>
+
+
+            <!-- 415 -->
+
+            <on-error-propagate type="APIKIT:UNSUPPORTED_MEDIA_TYPE">
+
+                <ee:transform>
+
+                    <ee:message>
+
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: false,
+    errorCode: "UNSUPPORTED_MEDIA_TYPE",
+    message: "Unsupported media type"
+}]]></ee:set-payload>
+
+                    </ee:message>
+
+                    <ee:variables>
+
+                        <ee:set-variable
+                            variableName="httpStatus">415</ee:set-variable>
+
+                    </ee:variables>
+
+                </ee:transform>
+
+            </on-error-propagate>
+
+
+            <!-- 501 -->
+
+            <on-error-propagate type="APIKIT:NOT_IMPLEMENTED">
+
+                <ee:transform>
+
+                    <ee:message>
+
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: false,
+    errorCode: "NOT_IMPLEMENTED",
+    message: "Not implemented"
+}]]></ee:set-payload>
+
+                    </ee:message>
+
+                    <ee:variables>
+
+                        <ee:set-variable
+                            variableName="httpStatus">501</ee:set-variable>
+
+                    </ee:variables>
+
+                </ee:transform>
+
+            </on-error-propagate>
+
+        </error-handler>
+
+    </flow>
+
+
+    <!-- ===================================================== -->
+    <!-- API CONSOLE FLOW                                     -->
+    <!-- ===================================================== -->
+
+    <flow name="ordermanagementintegration-console">
+
+        <http:listener
+            config-ref="ordermanagementintegration-httpListenerConfig"
+            path="/console/*">
+
+            <http:response
+                statusCode="#[vars.httpStatus default 200]">
+
+                <http:headers>
+                    <![CDATA[#[vars.outboundHeaders default {}]]]>
+                </http:headers>
+
+            </http:response>
+
+            <http:error-response
+                statusCode="#[vars.httpStatus default 500]">
+
+                <http:body>
+                    <![CDATA[#[payload]]]>
+                </http:body>
+
+                <http:headers>
+                    <![CDATA[#[vars.outboundHeaders default {}]]]>
+                </http:headers>
+
+            </http:error-response>
+
+        </http:listener>
+
+
+        <apikit:console
+            config-ref="ordermanagementintegration-config"/>
+
+
+        <error-handler>
+
+            <on-error-propagate type="APIKIT:NOT_FOUND">
+
+                <ee:transform>
+
+                    <ee:message>
+
+                        <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: false,
+    errorCode: "NOT_FOUND",
+    message: "Resource not found"
+}]]></ee:set-payload>
+
+                    </ee:message>
+
+                    <ee:variables>
+
+                        <ee:set-variable
+                            variableName="httpStatus">404</ee:set-variable>
+
+                    </ee:variables>
+
+                </ee:transform>
+
+            </on-error-propagate>
+
+        </error-handler>
+
+    </flow>
+
+
+    <!-- ===================================================== -->
+    <!-- POST ORDERS FLOW                                     -->
+    <!-- ===================================================== -->
+
+    <flow name="post:\orders:application\json:ordermanagementintegration-config">
+        <logger
+            level="INFO"
+            doc:name="Logger"
+            message="Received order request"/>
+
+
+        <!-- Store incoming request -->
+
+        <set-variable
+            variableName="orderRequest"
+            value="#[payload]"
+            doc:name="Store Order Request"/>
+
+
+        <!-- Validate Order -->
+
+        <choice doc:name="Validate Order">
+
+            <when expression="#[
+                vars.orderRequest.customer.name != null
+                and vars.orderRequest.customer.email != null
+                and vars.orderRequest.productId != null
+                and vars.orderRequest.quantity != null
+                and vars.orderRequest.quantity > 0
+            ]">
+
+
+                <!-- ================================================= -->
+                <!-- GET PRODUCT FROM ORDER API                         -->
+                <!-- ================================================= -->
+
+                <http:request
+                    method="GET"
+                    url="#['http://localhost:8082/products/' ++ vars.orderRequest.productId]"
+                    config-ref="HTTP_Request_configuration"
+                    doc:name="Get Product"/>
+
+
+                <!-- Store Product -->
+
+                <set-variable
+                    variableName="product"
+                    value="#[payload]"
+                    doc:name="Store Product"/>
+
+
+                <!-- ================================================= -->
+                <!-- CHECK STOCK                                       -->
+                <!-- ================================================= -->
+
+                <choice doc:name="Check Stock">
+
+                    <when expression="#[vars.orderRequest.quantity &gt;&#10;                        vars.product.availableStock]">
+
+                        <raise-error
+                            doc:name="Insufficient Stock"
+                            type="APP:INSUFFICIENT_STOCK"
+                            description="Requested quantity is greater than available stock"/>
+
+                    </when>
+
+
+                    <otherwise>
+
+
+                        <!-- ========================================= -->
+                        <!-- CREATE ORDER DETAILS                       -->
+                        <!-- ========================================= -->
+
+                        <ee:transform
+                            doc:name="Create Order Details">
+
+                            <ee:message>
+
+                                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    productId: vars.product.productId,
+    productName: vars.product.productName,
+    quantity: vars.orderRequest.quantity,
+
+    subtotal:
+        vars.product.price *
+        vars.orderRequest.quantity,
+
+    discount:
+        if (
+            (vars.product.price *
+             vars.orderRequest.quantity) > 10000
+        )
+            (
+                (vars.product.price *
+                 vars.orderRequest.quantity) * 0.10
+            )
+        else
+            0,
+
+    totalAmount:
+        (
+            vars.product.price *
+            vars.orderRequest.quantity
+        )
+        -
+        (
+            if (
+                (vars.product.price *
+                 vars.orderRequest.quantity) > 10000
+            )
+                (
+                    (vars.product.price *
+                     vars.orderRequest.quantity) * 0.10
+                )
+            else
+                0
+        )
+}]]></ee:set-payload>
+
+                            </ee:message>
+
+                        </ee:transform>
+
+
+                        <!-- Store Order Details -->
+
+                        <set-variable
+                            variableName="orderDetails"
+                            value="#[payload]"
+                            doc:name="Store Order Details"/>
+
+
+                        <!-- ========================================= -->
+                        <!-- SEND ORDER TO ORDER API                   -->
+                        <!-- ========================================= -->
+
+                        <http:request
+                            method="POST"
+                            url="http://localhost:8082/orders"
+                            config-ref="HTTP_Request_configuration"
+                            doc:name="Send Order">
+
+                            <http:body>
+                                <![CDATA[#[vars.orderDetails]]]>
+                            </http:body>
+
+                            <http:headers>
+                                <![CDATA[#[%dw 2.0
+output application/java
+---
+{
+    "Content-Type": "application/json"
+}]]]>
+                            </http:headers>
+
+                        </http:request>
+
+                    </otherwise>
+
+                </choice>
+
+            </when>
+
+
+            <!-- Invalid Order -->
+
+            <otherwise>
+
+                <raise-error
+                    doc:name="Invalid Order"
+                    type="APP:INVALID_ORDER"
+                    description="Invalid order details"/>
+
+            </otherwise>
+
+        </choice>
+
+
+        <!-- ================================================= -->
+        <!-- FINAL RESPONSE                                    -->
+        <!-- ================================================= -->
+
+        <ee:transform
+            doc:name="Final Response">
+
+            <ee:message>
+
+                <ee:set-payload><![CDATA[%dw 2.0
+output application/json
+---
+{
+    success: true,
+
+    orderId: "ORD1001",
+
+    productId:
+        vars.orderRequest.productId,
+
+    productName:
+        vars.product.productName,
+
+    quantity:
+        vars.orderRequest.quantity,
+
+    subtotal:
+        vars.product.price *
+        vars.orderRequest.quantity,
+
+    discount:
+        if (
+            (vars.product.price *
+             vars.orderRequest.quantity) > 10000
+        )
+            (
+                (vars.product.price *
+                 vars.orderRequest.quantity) * 0.10
+            )
+        else
+            0,
+
+    totalAmount:
+        (
+            vars.product.price *
+            vars.orderRequest.quantity
+        )
+        -
+        (
+            if (
+                (vars.product.price *
+                 vars.orderRequest.quantity) > 10000
+            )
+                (
+                    (vars.product.price *
+                     vars.orderRequest.quantity) * 0.10
+                )
+            else
+                0
+        ),
+
+    notificationStatus: "SENT"
+}]]></ee:set-payload>
+
+            </ee:message>
+
+        </ee:transform>
+
+    </flow>
+
+</mule>
